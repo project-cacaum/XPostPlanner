@@ -168,10 +168,23 @@ async def help_command(interaction: discord.Interaction):
 • `/post content:"定期投稿です" time:"14:30"`
 • `/post content:"明日の予告" time:"01/15 10:00"`
 • `/post content:"新商品のお知らせ" time:"2025-01-20 15:30"`
+• `/post content:"画像付き投稿" time:"16:00" image1:[画像ファイル]`
 """
     embed.add_field(
         name="💡 使用例", 
         value=examples,
+        inline=False
+    )
+    
+    # 画像機能の説明
+    image_info = """
+最大4枚の画像を添付できます（image1〜image4パラメータ）。
+対応形式：JPG、PNG、GIF、WebP
+投稿後、画像ファイルは自動的に削除されます。
+"""
+    embed.add_field(
+        name="📷 画像機能",
+        value=image_info,
         inline=False
     )
     
