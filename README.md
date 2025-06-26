@@ -85,18 +85,28 @@ rye run start
 Use the `/post` slash command in your Discord server:
 
 ```
-/post content:"Hello, world! 🌟" time:"2025-12-31 23:59"
+/post content:"Hello, world! 🌟" time:"2025-12-31 23:59:30"
+```
+
+**Quick posting:**
+```
+/post content:"Emergency post!" time:"30秒後"
+/post content:"Quick update" time:"5分30秒後"
 ```
 
 **With images:**
 ```
-/post content:"Check out these photos!" time:"14:30" image1:[attach file] image2:[attach file]
+/post content:"Check out these photos!" time:"14:30:45" image1:[attach file] image2:[attach file]
 ```
 
 **Parameters:**
 - `content`: The text content to post on X
-- `time`: When to post (format: `YYYY-MM-DD HH:MM` or `YYYY-MM-DDTHH:MM`)
+- `time`: When to post - supports various formats including seconds
 - `image1-4` (optional): Up to 4 image files to attach (JPG, PNG, GIF, WebP)
+
+**Supported time formats:**
+- Absolute: `2025-01-15 14:30:45`, `14:30:45`, `14:30`
+- Relative: `30秒後`, `5分30秒後`, `2時間30分後`
 
 ### Managing Posts
 
