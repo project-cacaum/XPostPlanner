@@ -67,7 +67,7 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
         
         if has_images:
             # 画像を保存
-            saved_images = bot.image_manager.save_discord_attachments(attachments)
+            saved_images = await bot.image_manager.save_discord_attachments(attachments)
             if not saved_images:
                 await interaction.followup.send("❌ 画像の保存に失敗しました。", ephemeral=True)
                 return

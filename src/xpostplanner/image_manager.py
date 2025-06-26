@@ -15,7 +15,7 @@ class ImageManager:
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(exist_ok=True)
     
-    def save_discord_attachments(self, attachments: List[Any]) -> List[Dict[str, Any]]:
+    async def save_discord_attachments(self, attachments: List[Any]) -> List[Dict[str, Any]]:
         """
         Discordの添付ファイルを保存
         
@@ -39,8 +39,9 @@ class ImageManager:
             
             try:
                 # ファイルを保存
+                attachment_data = await attachment.read()
                 with open(file_path, 'wb') as f:
-                    f.write(attachment.read())
+                    f.write(attachment_data)
                 
                 saved_images.append({
                     'file_path': str(file_path),
