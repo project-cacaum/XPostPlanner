@@ -188,6 +188,17 @@ async def help_command(interaction: discord.Interaction):
         inline=False
     )
     
+    # 管理機能
+    management_info = """
+• `/list` - スケジュール中の投稿一覧を表示
+• `/cancel post_id:[投稿ID]` - 指定した投稿をキャンセル
+"""
+    embed.add_field(
+        name="🗂️ 管理機能",
+        value=management_info,
+        inline=False
+    )
+    
     # 承認機能
     embed.add_field(
         name="👥 承認機能",
