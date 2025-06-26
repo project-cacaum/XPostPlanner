@@ -5,35 +5,63 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from pathlib import Path
-from .database import Database
-from .scheduler import PostScheduler
-from .date_parser import parse_datetime, get_supported_formats
-from .image_manager import ImageManager
+from .models.database import Database
+from .services.scheduler import PostScheduler
+from .utils.date_parser import parse_datetime, get_supported_formats
+from .services.image_manager import ImageManager
+from .utils.logger import get_logger, log_error_with_context
+from .config.settings import settings
 
 load_dotenv()
 
 class XPostBot(commands.Bot):
     def __init__(self):
+        self.logger = get_logger()
+        
+        # 設定の検証
+        missing_settings = settings.validate()
+        if missing_settings:
+            self.logger.error(f"Missing required settings: {missing_settings}")
+            raise ValueError(f"Missing required environment variables: {', '.join(missing_settings)}")
+        
+        # 必要なディレクトリを作成
+        settings.create_directories()
+        
+        self.logger.info("Initializing XPostBot...")
+        self.logger.info(f"Settings: {settings}")
+        
         intents = discord.Intents.default()
         super().__init__(command_prefix='!', intents=intents)
-        self.db = Database()
-        self.scheduler = PostScheduler(self)
-        self.image_manager = ImageManager()
+        
+        try:
+            self.db = Database()
+            self.scheduler = PostScheduler(self)
+            self.image_manager = ImageManager()
+            self.logger.info("Bot components initialized successfully")
+        except Exception as e:
+            log_error_with_context(e, {'component': 'bot_initialization'})
+            raise
         
     async def setup_hook(self):
         # スラッシュコマンドを同期
         try:
+            self.logger.info("Syncing slash commands...")
             synced = await self.tree.sync()
-            print(f"Synced {len(synced)} command(s)")
+            self.logger.info(f"Synced {len(synced)} command(s)")
         except Exception as e:
-            print(f"Failed to sync commands: {e}")
+            log_error_with_context(e, {'operation': 'command_sync'})
+            raise
     
     async def on_ready(self):
-        print(f'{self.user} has connected to Discord!')
-        print(f'Bot is ready in {len(self.guilds)} guilds')
+        self.logger.info(f'{self.user} has connected to Discord!')
+        self.logger.info(f'Bot is ready in {len(self.guilds)} guilds')
         
         # スケジューラを開始
-        asyncio.create_task(self.scheduler.start())
+        try:
+            asyncio.create_task(self.scheduler.start())
+            self.logger.info("Scheduler started successfully")
+        except Exception as e:
+            log_error_with_context(e, {'operation': 'scheduler_start'})
 
 bot = XPostBot()
 

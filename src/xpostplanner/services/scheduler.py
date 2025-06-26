@@ -5,8 +5,9 @@ import os
 import discord
 from datetime import datetime
 from typing import TYPE_CHECKING
-from .database import Database
+from ..models.database import Database
 from .twitter_client import TwitterClient
+from ..utils.logger import get_logger, log_error_with_context
 
 if TYPE_CHECKING:
     from .bot import XPostBot
@@ -17,6 +18,7 @@ class PostScheduler:
         self.db = Database()
         self.twitter_client = TwitterClient()
         self.is_running = False
+        self.logger = get_logger()
     
     async def start(self):
         """スケジューラを開始"""

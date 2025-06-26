@@ -1,16 +1,22 @@
 import tweepy
 import os
 from typing import Optional, List
+from ..utils.logger import get_logger, log_api_call, log_error_with_context
+from ..config.settings import settings
 
 class TwitterClient:
     def __init__(self):
-        self.api_key = os.getenv('TWITTER_API_KEY')
-        self.api_secret = os.getenv('TWITTER_API_SECRET')
-        self.access_token = os.getenv('TWITTER_ACCESS_TOKEN')
-        self.access_token_secret = os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
+        self.logger = get_logger()
+        
+        self.api_key = settings.TWITTER_API_KEY
+        self.api_secret = settings.TWITTER_API_SECRET
+        self.access_token = settings.TWITTER_ACCESS_TOKEN
+        self.access_token_secret = settings.TWITTER_ACCESS_TOKEN_SECRET
         
         if not all([self.api_key, self.api_secret, self.access_token, self.access_token_secret]):
-            raise ValueError("Twitter API credentials are not properly configured")
+            error_msg = "Twitter API credentials are not properly configured"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg)
         
         # Twitter API v2クライアントを初期化
         self.client = tweepy.Client(
