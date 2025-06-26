@@ -1,0 +1,149 @@
+import sqlite3
+import os
+from datetime import datetime
+from typing import List, Optional, Dict, Any
+
+class Database:
+    def __init__(self, db_path: str = "xpost_scheduler.db"):
+        self.db_path = db_path
+        self.init_database()
+    
+    def init_database(self):
+        """データベースとテーブルを初期化"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 投稿予約テーブル
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS scheduled_posts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content TEXT NOT NULL,
+                    scheduled_time DATETIME NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    posted_at DATETIME NULL,
+                    is_posted BOOLEAN DEFAULT FALSE,
+                    discord_message_id TEXT,
+                    guild_id TEXT,
+                    channel_id TEXT
+                )
+            ''')
+            
+            # 承認記録テーブル
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS post_approvals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    post_id INTEGER,
+                    user_id TEXT NOT NULL,
+                    approval_type TEXT NOT NULL CHECK (approval_type IN ('good', 'bad')),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (post_id) REFERENCES scheduled_posts (id),
+                    UNIQUE(post_id, user_id)
+                )
+            ''')
+            
+            conn.commit()
+    
+    def add_scheduled_post(self, content: str, scheduled_time: datetime, 
+                          discord_message_id: str, guild_id: str, channel_id: str) -> int:
+        """投稿予約を追加"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO scheduled_posts 
+                (content, scheduled_time, discord_message_id, guild_id, channel_id)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (content, scheduled_time, discord_message_id, guild_id, channel_id))
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_pending_posts(self) -> List[Dict[str, Any]]:
+        """投稿予定の投稿を取得"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, content, scheduled_time, discord_message_id, guild_id, channel_id
+                FROM scheduled_posts
+                WHERE is_posted = FALSE AND scheduled_time <= ?
+            ''', (datetime.now(),))
+            
+            rows = cursor.fetchall()
+            return [
+                {
+                    'id': row[0],
+                    'content': row[1],
+                    'scheduled_time': row[2],
+                    'discord_message_id': row[3],
+                    'guild_id': row[4],
+                    'channel_id': row[5]
+                }
+                for row in rows
+            ]
+    
+    def mark_post_as_posted(self, post_id: int):
+        """投稿済みとしてマーク"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE scheduled_posts
+                SET is_posted = TRUE, posted_at = ?
+                WHERE id = ?
+            ''', (datetime.now(), post_id))
+            conn.commit()
+    
+    def add_approval(self, post_id: int, user_id: str, approval_type: str):
+        """承認記録を追加/更新"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR REPLACE INTO post_approvals (post_id, user_id, approval_type)
+                VALUES (?, ?, ?)
+            ''', (post_id, user_id, approval_type))
+            conn.commit()
+    
+    def remove_approval(self, post_id: int, user_id: str):
+        """承認記録を削除"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                DELETE FROM post_approvals
+                WHERE post_id = ? AND user_id = ?
+            ''', (post_id, user_id))
+            conn.commit()
+    
+    def get_approval_counts(self, post_id: int) -> Dict[str, int]:
+        """承認数を取得"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT approval_type, COUNT(*) as count
+                FROM post_approvals
+                WHERE post_id = ?
+                GROUP BY approval_type
+            ''', (post_id,))
+            
+            results = cursor.fetchall()
+            counts = {'good': 0, 'bad': 0}
+            for approval_type, count in results:
+                counts[approval_type] = count
+            
+            return counts
+    
+    def get_post_by_message_id(self, message_id: str) -> Optional[Dict[str, Any]]:
+        """Discord メッセージIDから投稿を取得"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, content, scheduled_time, is_posted
+                FROM scheduled_posts
+                WHERE discord_message_id = ?
+            ''', (message_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'id': row[0],
+                    'content': row[1],
+                    'scheduled_time': row[2],
+                    'is_posted': row[3]
+                }
+            return None
