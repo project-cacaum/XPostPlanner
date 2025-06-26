@@ -24,8 +24,7 @@ class Database:
                     is_posted BOOLEAN DEFAULT FALSE,
                     discord_message_id TEXT,
                     guild_id TEXT,
-                    channel_id TEXT,
-                    has_images BOOLEAN DEFAULT FALSE
+                    channel_id TEXT
                 )
             ''')
             
@@ -55,7 +54,20 @@ class Database:
                 )
             ''')
             
+            # マイグレーションを実行
+            self._run_migrations(cursor)
+            
             conn.commit()
+    
+    def _run_migrations(self, cursor):
+        """データベースマイグレーションを実行"""
+        # has_imagesカラムが存在するかチェック
+        cursor.execute("PRAGMA table_info(scheduled_posts)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        if 'has_images' not in columns:
+            cursor.execute('ALTER TABLE scheduled_posts ADD COLUMN has_images BOOLEAN DEFAULT FALSE')
+            print("Added has_images column to scheduled_posts table")
     
     def add_scheduled_post(self, content: str, scheduled_time: datetime, 
                           discord_message_id: str, guild_id: str, channel_id: str,
