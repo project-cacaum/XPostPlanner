@@ -10,3 +10,49 @@
 #   universal: false
 
 -e file:.
+aiohappyeyeballs==2.6.1
+    # via aiohttp
+aiohttp==3.12.13
+    # via discord-py
+aiosignal==1.3.2
+    # via aiohttp
+attrs==25.3.0
+    # via aiohttp
+audioop-lts==0.2.1
+    # via discord-py
+certifi==2025.6.15
+    # via requests
+charset-normalizer==3.4.2
+    # via requests
+discord-py==2.5.2
+    # via xpostplanner
+frozenlist==1.7.0
+    # via aiohttp
+    # via aiosignal
+idna==3.10
+    # via requests
+    # via yarl
+multidict==6.5.1
+    # via aiohttp
+    # via yarl
+oauthlib==3.3.1
+    # via requests-oauthlib
+    # via tweepy
+propcache==0.3.2
+    # via aiohttp
+    # via yarl
+python-dotenv==1.1.1
+    # via xpostplanner
+requests==2.32.4
+    # via requests-oauthlib
+    # via tweepy
+requests-oauthlib==2.0.0
+    # via tweepy
+schedule==1.2.2
+    # via xpostplanner
+tweepy==4.16.0
+    # via xpostplanner
+urllib3==2.5.0
+    # via requests
+yarl==1.20.1
+    # via aiohttp
