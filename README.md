@@ -75,7 +75,7 @@ Your X API app needs:
 ### Starting the Bot
 
 ```bash
-rye run python -m xpostplanner.bot
+rye run start
 ```
 
 ### Scheduling a Post
@@ -147,7 +147,7 @@ XPostPlanner/
 ### Running in Development Mode
 
 ```bash
-rye run python -m xpostplanner.bot
+rye run start
 ```
 
 ### Database

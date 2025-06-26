@@ -75,7 +75,7 @@ X APIアプリには以下が必要です：
 ### ボットの起動
 
 ```bash
-rye run python -m xpostplanner.bot
+rye run start
 ```
 
 ### 投稿の予約
@@ -147,7 +147,7 @@ XPostPlanner/
 ### 開発モードでの実行
 
 ```bash
-rye run python -m xpostplanner.bot
+rye run start
 ```
 
 ### データベース

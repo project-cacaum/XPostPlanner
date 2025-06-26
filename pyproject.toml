@@ -3,7 +3,7 @@ name = "xpostplanner"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
-    { name = "sserada", email = "hirawatasou@gmail.com" }
+    { name = "cacaum", email = "contact.cacaum@gmail.com" }
 ]
 dependencies = [
     "discord-py>=2.5.2",
@@ -21,6 +21,9 @@ build-backend = "hatchling.build"
 [tool.rye]
 managed = true
 dev-dependencies = []
+
+[tool.rye.scripts]
+start = "python -m xpostplanner.bot"
 
 [tool.hatch.metadata]
 allow-direct-references = true
