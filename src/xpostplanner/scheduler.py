@@ -22,13 +22,13 @@ class PostScheduler:
         """スケジューラを開始"""
         self.is_running = True
         
-        # 1分ごとに投稿チェックを実行
-        schedule.every(1).minutes.do(self._check_and_post)
+        # 30秒ごとに投稿チェックを実行（秒単位対応のため）
+        schedule.every(30).seconds.do(self._check_and_post)
         
         # バックグラウンドでスケジューラを実行
         while self.is_running:
             schedule.run_pending()
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)  # 10秒間隔でチェック
     
     def stop(self):
         """スケジューラを停止"""
