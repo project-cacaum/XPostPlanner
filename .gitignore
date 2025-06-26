@@ -1,6 +1,7 @@
 ## original ##
 docs/
 CLAUDE.md
+*.db
 
 # python generated files
 __pycache__/
