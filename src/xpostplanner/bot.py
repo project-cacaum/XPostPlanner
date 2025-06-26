@@ -164,10 +164,10 @@ async def help_command(interaction: discord.Interaction):
     # 使用例
     examples = """
 **使用例:**
-• `/post content:"こんにちは！" time:"30分後"`
-• `/post content:"定期投稿です" time:"14:30"`
+• `/post content:"緊急投稿" time:"30秒後"`
+• `/post content:"すぐ投稿" time:"5分30秒後"`
+• `/post content:"定期投稿" time:"14:30:45"`
 • `/post content:"明日の予告" time:"01/15 10:00"`
-• `/post content:"新商品のお知らせ" time:"2025-01-20 15:30"`
 • `/post content:"画像付き投稿" time:"16:00" image1:[画像ファイル]`
 """
     embed.add_field(
