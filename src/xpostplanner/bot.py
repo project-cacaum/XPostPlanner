@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from .database import Database
 from .scheduler import PostScheduler
-from .date_parser import get_supported_formats
+from .date_parser import parse_datetime, get_supported_formats
 
 load_dotenv()
 
@@ -34,21 +34,27 @@ class XPostBot(commands.Bot):
 
 bot = XPostBot()
 
-@bot.tree.command(name="post", description="X(Twitter)への投稿を予約します")
+@bot.tree.command(name="post", description="X(Twitter)への投稿を予約します（例: 30分後、14:30、01/15 14:30）")
 async def post_command(interaction: discord.Interaction, content: str, time: str):
     """
     投稿を予約するスラッシュコマンド
     """
     await interaction.response.defer()
     
+    # 時刻をパース
+    scheduled_time = parse_datetime(time)
+    
+    if scheduled_time is None:
+        error_message = f"❌ 時刻の形式が正しくありません。\n\n{get_supported_formats()}"
+        await interaction.followup.send(error_message, ephemeral=True)
+        return
+    
+    # 過去の時刻でないかチェック
+    if scheduled_time <= datetime.now():
+        await interaction.followup.send("❌ 過去の時刻は指定できません。", ephemeral=True)
+        return
+    
     try:
-        # 時刻をパース
-        scheduled_time = datetime.fromisoformat(time.replace('T', ' '))
-        
-        # 過去の時刻でないかチェック
-        if scheduled_time <= datetime.now():
-            await interaction.followup.send("❌ 過去の時刻は指定できません。", ephemeral=True)
-            return
         
         embed = discord.Embed(
             title="📝 投稿予約",
@@ -74,9 +80,9 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
         view.post_id = post_id
         await message.edit(view=view)
         
-    except ValueError:
+    except Exception as e:
         await interaction.followup.send(
-            "❌ 時刻の形式が正しくありません。\n例: `2025-07-01 10:00` または `2025-07-01T10:00`",
+            f"❌ 投稿の予約に失敗しました: {str(e)}",
             ephemeral=True
         )
 
