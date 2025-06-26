@@ -5,6 +5,14 @@ CLAUDE.md
 start.sh
 ecosystem.config.cjs
 
+# image storage
+images/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+
 # python generated files
 __pycache__/
 *.py[oc]
