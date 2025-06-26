@@ -40,12 +40,27 @@ class PostScheduler:
             pending_posts = self.db.get_pending_posts()
             
             for post in pending_posts:
+                # 画像があるかチェック
+                image_paths = []
+                if post['has_images']:
+                    images = self.db.get_post_images(post['id'])
+                    image_paths = [img['file_path'] for img in images]
+                
                 # 投稿を実行
-                tweet_id = self.twitter_client.post_tweet(post['content'])
+                tweet_id = self.twitter_client.post_tweet(
+                    post['content'], 
+                    image_paths if image_paths else None
+                )
                 
                 if tweet_id:
                     # 投稿成功
                     self.db.mark_post_as_posted(post['id'])
+                    
+                    # 画像ファイルをクリーンアップ
+                    if image_paths:
+                        from .image_manager import ImageManager
+                        image_manager = ImageManager()
+                        image_manager.cleanup_images(image_paths)
                     
                     # ログチャンネルに通知
                     asyncio.create_task(self._log_success(post, tweet_id))

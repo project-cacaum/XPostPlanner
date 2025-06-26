@@ -1,6 +1,6 @@
 import tweepy
 import os
-from typing import Optional
+from typing import Optional, List
 
 class TwitterClient:
     def __init__(self):
@@ -20,19 +20,46 @@ class TwitterClient:
             access_token_secret=self.access_token_secret,
             wait_on_rate_limit=True
         )
+        
+        # Twitter API v1.1クライアント（メディアアップロード用）
+        auth = tweepy.OAuth1UserHandler(
+            self.api_key,
+            self.api_secret,
+            self.access_token,
+            self.access_token_secret
+        )
+        self.api = tweepy.API(auth)
     
-    def post_tweet(self, content: str) -> Optional[str]:
+    def post_tweet(self, content: str, image_paths: Optional[List[str]] = None) -> Optional[str]:
         """
         ツイートを投稿する
         
         Args:
             content (str): ツイート内容
+            image_paths (Optional[List[str]]): 画像ファイルパスのリスト（最大4枚）
             
         Returns:
             Optional[str]: 投稿成功時はツイートID、失敗時はNone
         """
         try:
-            response = self.client.create_tweet(text=content)
+            media_ids = []
+            
+            # 画像をアップロード
+            if image_paths:
+                for image_path in image_paths[:4]:  # 最大4枚まで
+                    try:
+                        media = self.api.media_upload(image_path)
+                        media_ids.append(media.media_id)
+                    except Exception as e:
+                        print(f"Failed to upload image {image_path}: {e}")
+                        continue
+            
+            # ツイートを投稿
+            response = self.client.create_tweet(
+                text=content,
+                media_ids=media_ids if media_ids else None
+            )
+            
             if response.data:
                 return response.data['id']
             return None

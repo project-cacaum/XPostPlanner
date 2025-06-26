@@ -24,7 +24,21 @@ class Database:
                     is_posted BOOLEAN DEFAULT FALSE,
                     discord_message_id TEXT,
                     guild_id TEXT,
-                    channel_id TEXT
+                    channel_id TEXT,
+                    has_images BOOLEAN DEFAULT FALSE
+                )
+            ''')
+            
+            # 画像情報テーブル
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS post_images (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    post_id INTEGER NOT NULL,
+                    file_path TEXT NOT NULL,
+                    original_filename TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (post_id) REFERENCES scheduled_posts (id)
                 )
             ''')
             
@@ -44,15 +58,16 @@ class Database:
             conn.commit()
     
     def add_scheduled_post(self, content: str, scheduled_time: datetime, 
-                          discord_message_id: str, guild_id: str, channel_id: str) -> int:
+                          discord_message_id: str, guild_id: str, channel_id: str,
+                          has_images: bool = False) -> int:
         """投稿予約を追加"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 INSERT INTO scheduled_posts 
-                (content, scheduled_time, discord_message_id, guild_id, channel_id)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (content, scheduled_time, discord_message_id, guild_id, channel_id))
+                (content, scheduled_time, discord_message_id, guild_id, channel_id, has_images)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (content, scheduled_time, discord_message_id, guild_id, channel_id, has_images))
             conn.commit()
             return cursor.lastrowid
     
@@ -61,7 +76,7 @@ class Database:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT id, content, scheduled_time, discord_message_id, guild_id, channel_id
+                SELECT id, content, scheduled_time, discord_message_id, guild_id, channel_id, has_images
                 FROM scheduled_posts
                 WHERE is_posted = FALSE AND scheduled_time <= ?
             ''', (datetime.now(),))
@@ -74,7 +89,8 @@ class Database:
                     'scheduled_time': row[2],
                     'discord_message_id': row[3],
                     'guild_id': row[4],
-                    'channel_id': row[5]
+                    'channel_id': row[5],
+                    'has_images': row[6]
                 }
                 for row in rows
             ]
@@ -147,3 +163,36 @@ class Database:
                     'is_posted': row[3]
                 }
             return None
+    
+    def add_post_image(self, post_id: int, file_path: str, original_filename: str, file_size: int) -> int:
+        """投稿に画像を追加"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO post_images (post_id, file_path, original_filename, file_size)
+                VALUES (?, ?, ?, ?)
+            ''', (post_id, file_path, original_filename, file_size))
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_post_images(self, post_id: int) -> List[Dict[str, Any]]:
+        """投稿の画像一覧を取得"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, file_path, original_filename, file_size
+                FROM post_images
+                WHERE post_id = ?
+                ORDER BY id
+            ''', (post_id,))
+            
+            rows = cursor.fetchall()
+            return [
+                {
+                    'id': row[0],
+                    'file_path': row[1],
+                    'original_filename': row[2],
+                    'file_size': row[3]
+                }
+                for row in rows
+            ]
