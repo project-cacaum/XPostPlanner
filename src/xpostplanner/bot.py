@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from .database import Database
 from .scheduler import PostScheduler
+from .date_parser import get_supported_formats
 
 load_dotenv()
 
@@ -78,6 +79,58 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
             "❌ 時刻の形式が正しくありません。\n例: `2025-07-01 10:00` または `2025-07-01T10:00`",
             ephemeral=True
         )
+
+@bot.tree.command(name="help", description="ボットの使い方と日付フォーマットを表示します")
+async def help_command(interaction: discord.Interaction):
+    """
+    ヘルプコマンド - ボットの使い方を表示
+    """
+    embed = discord.Embed(
+        title="🤖 XPostPlanner ボットの使い方",
+        description="X（Twitter）投稿を予約・管理するDiscordボットです",
+        color=0x1DA1F2
+    )
+    
+    # 基本的な使い方
+    embed.add_field(
+        name="📝 基本的な使い方",
+        value="`/post content:\"投稿内容\" time:\"投稿時刻\"`\n投稿を予約して、チームメンバーの承認を得ることができます。",
+        inline=False
+    )
+    
+    # 日付フォーマット
+    date_formats = get_supported_formats()
+    embed.add_field(
+        name="📅 日付フォーマット",
+        value=date_formats,
+        inline=False
+    )
+    
+    # 使用例
+    examples = """
+**使用例:**
+• `/post content:"こんにちは！" time:"30分後"`
+• `/post content:"定期投稿です" time:"14:30"`
+• `/post content:"明日の予告" time:"01/15 10:00"`
+• `/post content:"新商品のお知らせ" time:"2025-01-20 15:30"`
+"""
+    embed.add_field(
+        name="💡 使用例", 
+        value=examples,
+        inline=False
+    )
+    
+    # 承認機能
+    embed.add_field(
+        name="👥 承認機能",
+        value="投稿予約後、👍ボタンで承認、👎ボタンで却下できます。\n指定時刻になると自動的にXに投稿されます。",
+        inline=False
+    )
+    
+    # フッター
+    embed.set_footer(text="🚀 XPostPlanner | チーム投稿管理ボット")
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 class ApprovalView(discord.ui.View):
     def __init__(self, db: Database):
