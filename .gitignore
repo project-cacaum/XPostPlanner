@@ -2,6 +2,8 @@
 docs/
 CLAUDE.md
 *.db
+start.sh
+ecosystem.config.cjs
 
 # python generated files
 __pycache__/
