@@ -7,15 +7,18 @@ def parse_datetime(time_str: str) -> Optional[datetime]:
     様々な形式の日時文字列をパースして datetime オブジェクトを返す
     
     対応フォーマット:
-    - 2025-01-15 14:30
+    - 2025-01-15 14:30:45
     - 2025/01/15 14:30
     - 01-15 14:30 (今年)
     - 01/15 14:30 (今年)
     - 15日 14:30 (今月)
+    - 14:30:45 (今日)
     - 14:30 (今日)
+    - 30秒後
+    - 5分30秒後
     - 30分後
     - 1時間後
-    - 2時間30分後
+    - 2時間30分45秒後
     
     Args:
         time_str (str): 日時文字列
@@ -28,9 +31,12 @@ def parse_datetime(time_str: str) -> Optional[datetime]:
     
     # 相対時間のパターン
     relative_patterns = [
+        (r'(\d+)秒後', lambda m: now + timedelta(seconds=int(m.group(1)))),
         (r'(\d+)分後', lambda m: now + timedelta(minutes=int(m.group(1)))),
+        (r'(\d+)分(\d+)秒後', lambda m: now + timedelta(minutes=int(m.group(1)), seconds=int(m.group(2)))),
         (r'(\d+)時間後', lambda m: now + timedelta(hours=int(m.group(1)))),
         (r'(\d+)時間(\d+)分後', lambda m: now + timedelta(hours=int(m.group(1)), minutes=int(m.group(2)))),
+        (r'(\d+)時間(\d+)分(\d+)秒後', lambda m: now + timedelta(hours=int(m.group(1)), minutes=int(m.group(2)), seconds=int(m.group(3)))),
         (r'(\d+)日後', lambda m: now + timedelta(days=int(m.group(1)))),
     ]
     
@@ -56,10 +62,20 @@ def parse_datetime(time_str: str) -> Optional[datetime]:
          lambda m: datetime(now.year, now.month, int(m.group(1)), 
                            int(m.group(2)), int(m.group(3)))),
         
+        # HH:MM:SS (今日)
+        (r'(\d{1,2}):(\d{2}):(\d{2})', 
+         lambda m: datetime(now.year, now.month, now.day, 
+                           int(m.group(1)), int(m.group(2)), int(m.group(3)))),
+        
         # HH:MM (今日)
         (r'(\d{1,2}):(\d{2})', 
          lambda m: datetime(now.year, now.month, now.day, 
                            int(m.group(1)), int(m.group(2)))),
+        
+        # YYYY-MM-DDTHH:MM:SS (ISO format with seconds)
+        (r'(\d{4})-(\d{1,2})-(\d{1,2})T(\d{1,2}):(\d{2}):(\d{2})', 
+         lambda m: datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), 
+                           int(m.group(4)), int(m.group(5)), int(m.group(6)))),
         
         # YYYY-MM-DDTHH:MM (ISO format)
         (r'(\d{4})-(\d{1,2})-(\d{1,2})T(\d{1,2}):(\d{2})', 
@@ -98,16 +114,21 @@ def get_supported_formats() -> str:
 サポートされている日時フォーマット:
 
 📅 **絶対時刻指定:**
+• `2025-01-15 14:30:45` (年月日 時分秒)
 • `2025-01-15 14:30` (年月日 時分)
 • `2025/01/15 14:30` (年/月/日 時分)  
 • `01-15 14:30` (月日 時分 - 今年)
 • `01/15 14:30` (月/日 時分 - 今年)
 • `15日 14:30` (日 時分 - 今月)
+• `14:30:45` (時分秒 - 今日、過去の場合は翌日)
 • `14:30` (時分 - 今日、過去の場合は翌日)
 
 ⏰ **相対時刻指定:**
+• `30秒後`
+• `5分30秒後`
 • `30分後`
 • `1時間後`
 • `2時間30分後`
+• `1時間15分30秒後`
 • `3日後`
 """
