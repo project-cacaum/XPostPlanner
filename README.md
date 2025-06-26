@@ -7,6 +7,7 @@ A Discord bot for scheduling and managing X (Twitter) posts with team approval w
 ## Features
 
 - 📅 **Post Scheduling**: Schedule X posts using Discord slash commands
+- 📷 **Image Support**: Attach up to 4 images per post (JPG, PNG, GIF, WebP)
 - 👥 **Team Approval**: Team members can approve/reject posts using reaction buttons
 - 🤖 **Automated Posting**: Automatically posts approved content at scheduled times
 - 📊 **Approval Tracking**: Track who approved or rejected each post
@@ -86,9 +87,15 @@ Use the `/post` slash command in your Discord server:
 /post content:"Hello, world! 🌟" time:"2025-12-31 23:59"
 ```
 
+**With images:**
+```
+/post content:"Check out these photos!" time:"14:30" image1:[attach file] image2:[attach file]
+```
+
 **Parameters:**
 - `content`: The text content to post on X
 - `time`: When to post (format: `YYYY-MM-DD HH:MM` or `YYYY-MM-DDTHH:MM`)
+- `image1-4` (optional): Up to 4 image files to attach (JPG, PNG, GIF, WebP)
 
 ### Approving Posts
 
@@ -113,9 +120,12 @@ XPostPlanner/
 │   ├── bot.py              # Main Discord bot
 │   ├── database.py         # SQLite database management
 │   ├── scheduler.py        # Post scheduling logic
-│   └── twitter_client.py   # X API integration
+│   ├── twitter_client.py   # X API integration
+│   ├── image_manager.py    # Image handling and storage
+│   └── date_parser.py      # Date/time parsing utilities
 ├── docs/
 │   └── requirements.md     # Project requirements
+├── images/                 # Temporary image storage (auto-created)
 ├── .env.example           # Environment variables template
 ├── pyproject.toml         # Project configuration
 └── README.md             # This file
@@ -152,7 +162,11 @@ rye run start
 
 ### Database
 
-The bot uses SQLite for storing scheduled posts and approvals. The database file (`xpost_scheduler.db`) is created automatically when the bot starts.
+The bot uses SQLite for storing scheduled posts, approvals, and image metadata. The database file (`xpost_scheduler.db`) is created automatically when the bot starts.
+
+### Image Storage
+
+Images are temporarily stored in the `images/` directory and automatically cleaned up after posting. Supported formats: JPG, PNG, GIF, WebP (max 4 images per post).
 
 ### Contributing
 

@@ -4,9 +4,11 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+from pathlib import Path
 from .database import Database
 from .scheduler import PostScheduler
 from .date_parser import parse_datetime, get_supported_formats
+from .image_manager import ImageManager
 
 load_dotenv()
 
@@ -16,6 +18,7 @@ class XPostBot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents)
         self.db = Database()
         self.scheduler = PostScheduler(self)
+        self.image_manager = ImageManager()
         
     async def setup_hook(self):
         # スラッシュコマンドを同期
@@ -35,7 +38,9 @@ class XPostBot(commands.Bot):
 bot = XPostBot()
 
 @bot.tree.command(name="post", description="X(Twitter)への投稿を予約します（例: 30分後、14:30、01/15 14:30）")
-async def post_command(interaction: discord.Interaction, content: str, time: str):
+async def post_command(interaction: discord.Interaction, content: str, time: str, 
+                      image1: discord.Attachment = None, image2: discord.Attachment = None,
+                      image3: discord.Attachment = None, image4: discord.Attachment = None):
     """
     投稿を予約するスラッシュコマンド
     """
@@ -55,17 +60,50 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
         return
     
     try:
+        # 画像を処理
+        attachments = [img for img in [image1, image2, image3, image4] if img is not None]
+        saved_images = []
+        has_images = len(attachments) > 0
         
+        if has_images:
+            # 画像を保存
+            saved_images = await bot.image_manager.save_discord_attachments(attachments)
+            if not saved_images:
+                await interaction.followup.send("❌ 画像の保存に失敗しました。", ephemeral=True)
+                return
+        
+        # 埋め込みを作成
         embed = discord.Embed(
             title="📝 投稿予約",
             description=f"以下の投稿を予約しました:\n\n**投稿内容:**\n{content}\n\n**投稿予定時刻:**\n{scheduled_time.strftime('%Y-%m-%d %H:%M')}",
             color=0x1DA1F2
         )
         
+        # 画像がある場合は情報を追加
+        if has_images:
+            embed.add_field(
+                name="📷 添付画像",
+                value=f"{len(saved_images)}枚の画像が添付されています",
+                inline=False
+            )
+            # 最初の画像をサムネイルとして設定
+            if saved_images:
+                embed.set_thumbnail(url=f"attachment://{Path(saved_images[0]['original_filename']).name}")
+        
         # 承認ボタンを追加
         view = ApprovalView(bot.db)
         
-        message = await interaction.followup.send(embed=embed, view=view)
+        # 画像ファイルを添付
+        files = []
+        if has_images:
+            for image in saved_images:
+                try:
+                    file = discord.File(image['file_path'], filename=image['original_filename'])
+                    files.append(file)
+                except Exception as e:
+                    print(f"Failed to attach image {image['file_path']}: {e}")
+        
+        message = await interaction.followup.send(embed=embed, files=files, view=view)
         
         # データベースに投稿予約を保存
         post_id = bot.db.add_scheduled_post(
@@ -73,8 +111,19 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
             scheduled_time=scheduled_time,
             discord_message_id=str(message.id),
             guild_id=str(interaction.guild_id),
-            channel_id=str(interaction.channel_id)
+            channel_id=str(interaction.channel_id),
+            has_images=has_images
         )
+        
+        # 画像情報をデータベースに保存
+        if has_images:
+            for image in saved_images:
+                bot.db.add_post_image(
+                    post_id=post_id,
+                    file_path=image['file_path'],
+                    original_filename=image['original_filename'],
+                    file_size=image['file_size']
+                )
         
         # ViewにPost IDを設定
         view.post_id = post_id
@@ -119,10 +168,23 @@ async def help_command(interaction: discord.Interaction):
 • `/post content:"定期投稿です" time:"14:30"`
 • `/post content:"明日の予告" time:"01/15 10:00"`
 • `/post content:"新商品のお知らせ" time:"2025-01-20 15:30"`
+• `/post content:"画像付き投稿" time:"16:00" image1:[画像ファイル]`
 """
     embed.add_field(
         name="💡 使用例", 
         value=examples,
+        inline=False
+    )
+    
+    # 画像機能の説明
+    image_info = """
+最大4枚の画像を添付できます（image1〜image4パラメータ）。
+対応形式：JPG、PNG、GIF、WebP
+投稿後、画像ファイルは自動的に削除されます。
+"""
+    embed.add_field(
+        name="📷 画像機能",
+        value=image_info,
         inline=False
     )
     
