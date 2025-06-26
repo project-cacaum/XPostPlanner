@@ -11,6 +11,7 @@ A Discord bot for scheduling and managing X (Twitter) posts with team approval w
 - 👥 **Team Approval**: Team members can approve/reject posts using reaction buttons
 - 🤖 **Automated Posting**: Automatically posts approved content at scheduled times
 - 📊 **Approval Tracking**: Track who approved or rejected each post
+- 🗂️ **Post Management**: List and cancel scheduled posts
 - 📝 **Logging**: Success/failure notifications in dedicated log channels
 
 ## Prerequisites
@@ -97,6 +98,18 @@ Use the `/post` slash command in your Discord server:
 - `time`: When to post (format: `YYYY-MM-DD HH:MM` or `YYYY-MM-DDTHH:MM`)
 - `image1-4` (optional): Up to 4 image files to attach (JPG, PNG, GIF, WebP)
 
+### Managing Posts
+
+**List scheduled posts:**
+```
+/list
+```
+
+**Cancel a scheduled post:**
+```
+/cancel post_id:123
+```
+
 ### Approving Posts
 
 After scheduling a post, team members can:
@@ -109,6 +122,7 @@ After scheduling a post, team members can:
 The bot will send notifications to your log channel:
 - ✅ Successful posts
 - ❌ Failed posts
+- 🚫 Cancelled posts
 - ⚠️ System errors
 
 ## Project Structure
