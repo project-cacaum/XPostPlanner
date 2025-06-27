@@ -9,7 +9,7 @@ from .models.database import Database
 from .services.scheduler import PostScheduler
 from .utils.date_parser import parse_datetime, get_supported_formats
 from .services.image_manager import ImageManager
-from .utils.logger import get_logger, log_error_with_context
+from .utils.logger import get_logger, log_error_with_context, log_discord_event, log_security_event, performance_timer, log_structured
 from .config.settings import settings
 
 load_dotenv()
@@ -18,50 +18,89 @@ class XPostBot(commands.Bot):
     def __init__(self):
         self.logger = get_logger()
         
+        # セキュリティ監査ログ - ボット初期化
+        log_security_event('bot_initialization', {
+            'timestamp': datetime.now().isoformat(),
+            'pid': os.getpid()
+        })
+        
         # 設定の検証
         missing_settings = settings.validate()
         if missing_settings:
             self.logger.error(f"Missing required settings: {missing_settings}")
+            log_security_event('configuration_error', {
+                'missing_settings': missing_settings,
+                'severity': 'high'
+            })
             raise ValueError(f"Missing required environment variables: {', '.join(missing_settings)}")
         
         # 必要なディレクトリを作成
         settings.create_directories()
         
-        self.logger.info("Initializing XPostBot...")
+        log_structured('info', 'Initializing XPostBot', 
+                      component='bot', 
+                      operation='initialization',
+                      settings_loaded=True)
         self.logger.info(f"Settings: {settings}")
         
         intents = discord.Intents.default()
         super().__init__(command_prefix='!', intents=intents)
         
-        try:
-            self.db = Database()
-            self.scheduler = PostScheduler(self)
-            self.image_manager = ImageManager()
-            self.logger.info("Bot components initialized successfully")
-        except Exception as e:
-            log_error_with_context(e, {'component': 'bot_initialization'})
-            raise
+        with performance_timer('bot_components_initialization'):
+            try:
+                self.db = Database()
+                self.scheduler = PostScheduler(self)
+                self.image_manager = ImageManager()
+                log_structured('info', 'Bot components initialized successfully',
+                              component='bot',
+                              operation='component_initialization',
+                              database_ready=True,
+                              scheduler_ready=True,
+                              image_manager_ready=True)
+            except Exception as e:
+                log_error_with_context(e, {
+                    'component': 'bot_initialization',
+                    'operation': 'component_setup',
+                    'severity': 'critical'
+                })
+                raise
         
     async def setup_hook(self):
         # スラッシュコマンドを同期
-        try:
-            self.logger.info("Syncing slash commands...")
-            synced = await self.tree.sync()
-            self.logger.info(f"Synced {len(synced)} command(s)")
-        except Exception as e:
-            log_error_with_context(e, {'operation': 'command_sync'})
-            raise
+        with performance_timer('slash_commands_sync'):
+            try:
+                log_discord_event('command_sync_start')
+                synced = await self.tree.sync()
+                log_discord_event('command_sync_complete', 
+                                  command_count=len(synced),
+                                  commands=[cmd.name for cmd in synced])
+            except Exception as e:
+                log_error_with_context(e, {
+                    'operation': 'command_sync',
+                    'component': 'discord_api',
+                    'severity': 'high'
+                })
+                raise
     
     async def on_ready(self):
-        self.logger.info(f'{self.user} has connected to Discord!')
-        self.logger.info(f'Bot is ready in {len(self.guilds)} guilds')
+        log_discord_event('bot_ready', 
+                          bot_user=str(self.user),
+                          guild_count=len(self.guilds),
+                          guild_ids=[str(guild.id) for guild in self.guilds])
         
         # スケジューラを開始
         try:
             asyncio.create_task(self.scheduler.start())
-            self.logger.info("Scheduler started successfully")
+            log_structured('info', 'Scheduler started successfully',
+                          component='scheduler',
+                          operation='start',
+                          status='running')
         except Exception as e:
-            log_error_with_context(e, {'operation': 'scheduler_start'})
+            log_error_with_context(e, {
+                'operation': 'scheduler_start',
+                'component': 'scheduler',
+                'severity': 'critical'
+            })
 
 bot = XPostBot()
 
@@ -74,16 +113,35 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
     """
     await interaction.response.defer()
     
+    # コマンド実行をログに記録
+    log_discord_event('slash_command_executed', 
+                      command='post',
+                      user_id=str(interaction.user.id),
+                      guild_id=str(interaction.guild_id),
+                      channel_id=str(interaction.channel_id),
+                      content_length=len(content),
+                      has_attachments=any([image1, image2, image3, image4]))
+    
     # 時刻をパース
-    scheduled_time = parse_datetime(time)
+    with performance_timer('datetime_parsing'):
+        scheduled_time = parse_datetime(time)
     
     if scheduled_time is None:
         error_message = f"❌ 時刻の形式が正しくありません。\n\n{get_supported_formats()}"
+        log_structured('warning', 'Invalid datetime format provided',
+                      user_id=str(interaction.user.id),
+                      time_input=time,
+                      operation='post_command')
         await interaction.followup.send(error_message, ephemeral=True)
         return
     
     # 過去の時刻でないかチェック
     if scheduled_time <= datetime.now():
+        log_security_event('invalid_time_attempt', {
+            'user_id': str(interaction.user.id),
+            'attempted_time': scheduled_time.isoformat(),
+            'current_time': datetime.now().isoformat()
+        })
         await interaction.followup.send("❌ 過去の時刻は指定できません。", ephemeral=True)
         return
     
@@ -95,10 +153,20 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
         
         if has_images:
             # 画像を保存
-            saved_images = await bot.image_manager.save_discord_attachments(attachments)
-            if not saved_images:
-                await interaction.followup.send("❌ 画像の保存に失敗しました。", ephemeral=True)
-                return
+            with performance_timer('image_processing'):
+                saved_images = await bot.image_manager.save_discord_attachments(attachments)
+                if not saved_images:
+                    log_structured('error', 'Image save failed',
+                                  user_id=str(interaction.user.id),
+                                  attachment_count=len(attachments),
+                                  operation='image_save')
+                    await interaction.followup.send("❌ 画像の保存に失敗しました。", ephemeral=True)
+                    return
+                
+                log_structured('info', 'Images saved successfully',
+                              user_id=str(interaction.user.id),
+                              saved_count=len(saved_images),
+                              total_size=sum(img['file_size'] for img in saved_images))
         
         # 埋め込みを作成
         embed = discord.Embed(
@@ -134,14 +202,22 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
         message = await interaction.followup.send(embed=embed, files=files, view=view)
         
         # データベースに投稿予約を保存
-        post_id = bot.db.add_scheduled_post(
-            content=content,
-            scheduled_time=scheduled_time,
-            discord_message_id=str(message.id),
-            guild_id=str(interaction.guild_id),
-            channel_id=str(interaction.channel_id),
-            has_images=has_images
-        )
+        with performance_timer('database_post_creation'):
+            post_id = bot.db.add_scheduled_post(
+                content=content,
+                scheduled_time=scheduled_time,
+                discord_message_id=str(message.id),
+                guild_id=str(interaction.guild_id),
+                channel_id=str(interaction.channel_id),
+                has_images=has_images
+            )
+            
+            log_structured('info', 'Post scheduled successfully',
+                          post_id=post_id,
+                          user_id=str(interaction.user.id),
+                          scheduled_time=scheduled_time.isoformat(),
+                          has_images=has_images,
+                          content_length=len(content))
         
         # 画像情報をデータベースに保存
         if has_images:
@@ -158,6 +234,14 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
         await message.edit(view=view)
         
     except Exception as e:
+        log_error_with_context(e, {
+            'operation': 'post_command',
+            'user_id': str(interaction.user.id),
+            'guild_id': str(interaction.guild_id),
+            'channel_id': str(interaction.channel_id),
+            'content_length': len(content),
+            'has_images': has_images
+        })
         await interaction.followup.send(
             f"❌ 投稿の予約に失敗しました: {str(e)}",
             ephemeral=True
@@ -165,6 +249,9 @@ async def post_command(interaction: discord.Interaction, content: str, time: str
 
 @bot.tree.command(name="help", description="ボットの使い方と日付フォーマットを表示します")
 async def help_command(interaction: discord.Interaction):
+    log_discord_event('help_command_executed',
+                      user_id=str(interaction.user.id),
+                      guild_id=str(interaction.guild_id))
     """
     ヘルプコマンド - ボットの使い方を表示
     """
@@ -247,6 +334,10 @@ class ApprovalView(discord.ui.View):
     
     @discord.ui.button(emoji="👍", style=discord.ButtonStyle.success, custom_id="good_button")
     async def good_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        log_discord_event('approval_button_clicked',
+                          button_type='good',
+                          user_id=str(interaction.user.id),
+                          post_id=self.post_id)
         if not self.post_id:
             await interaction.response.send_message("❌ 投稿IDが見つかりません", ephemeral=True)
             return
@@ -270,6 +361,10 @@ class ApprovalView(discord.ui.View):
     
     @discord.ui.button(emoji="👎", style=discord.ButtonStyle.danger, custom_id="bad_button")
     async def bad_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        log_discord_event('approval_button_clicked',
+                          button_type='bad',
+                          user_id=str(interaction.user.id),
+                          post_id=self.post_id)
         if not self.post_id:
             await interaction.response.send_message("❌ 投稿IDが見つかりません", ephemeral=True)
             return

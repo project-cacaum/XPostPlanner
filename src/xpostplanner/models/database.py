@@ -158,53 +158,76 @@ class Database:
     
     def get_post_by_message_id(self, message_id: str) -> Optional[Dict[str, Any]]:
         """Discord メッセージIDから投稿を取得"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT id, content, scheduled_time, is_posted
-                FROM scheduled_posts
-                WHERE discord_message_id = ?
-            ''', (message_id,))
-            
-            row = cursor.fetchone()
-            if row:
-                return {
-                    'id': row[0],
-                    'content': row[1],
-                    'scheduled_time': row[2],
-                    'is_posted': row[3]
-                }
-            return None
+        with performance_timer('get_post_by_message_id'):
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, content, scheduled_time, is_posted
+                    FROM scheduled_posts
+                    WHERE discord_message_id = ?
+                ''', (message_id,))
+                
+                row = cursor.fetchone()
+                
+                log_database_operation('select', 'scheduled_posts', 1 if row else 0,
+                                      message_id=message_id,
+                                      operation='get_post_by_message_id',
+                                      found=bool(row))
+                
+                if row:
+                    return {
+                        'id': row[0],
+                        'content': row[1],
+                        'scheduled_time': row[2],
+                        'is_posted': row[3]
+                    }
+                return None
     
     def add_post_image(self, post_id: int, file_path: str, original_filename: str, file_size: int) -> int:
         """投稿に画像を追加"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO post_images (post_id, file_path, original_filename, file_size)
-                VALUES (?, ?, ?, ?)
-            ''', (post_id, file_path, original_filename, file_size))
-            conn.commit()
-            return cursor.lastrowid
+        with performance_timer('add_post_image'):
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO post_images (post_id, file_path, original_filename, file_size)
+                    VALUES (?, ?, ?, ?)
+                ''', (post_id, file_path, original_filename, file_size))
+                conn.commit()
+                image_id = cursor.lastrowid
+                
+                log_database_operation('insert', 'post_images', 1,
+                                      post_id=post_id,
+                                      image_id=image_id,
+                                      file_path=file_path,
+                                      original_filename=original_filename,
+                                      file_size=file_size)
+                
+                return image_id
     
     def get_post_images(self, post_id: int) -> List[Dict[str, Any]]:
         """投稿の画像一覧を取得"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT id, file_path, original_filename, file_size
-                FROM post_images
-                WHERE post_id = ?
-                ORDER BY id
-            ''', (post_id,))
-            
-            rows = cursor.fetchall()
-            return [
-                {
-                    'id': row[0],
-                    'file_path': row[1],
-                    'original_filename': row[2],
-                    'file_size': row[3]
-                }
-                for row in rows
-            ]
+        with performance_timer('get_post_images'):
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, file_path, original_filename, file_size
+                    FROM post_images
+                    WHERE post_id = ?
+                    ORDER BY id
+                ''', (post_id,))
+                
+                rows = cursor.fetchall()
+                
+                log_database_operation('select', 'post_images', len(rows),
+                                      post_id=post_id,
+                                      operation='get_post_images')
+                
+                return [
+                    {
+                        'id': row[0],
+                        'file_path': row[1],
+                        'original_filename': row[2],
+                        'file_size': row[3]
+                    }
+                    for row in rows
+                ]
