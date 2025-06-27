@@ -2,10 +2,12 @@ import sqlite3
 import os
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+from ..utils.logger import get_logger, log_error_with_context, log_structured, performance_timer, log_database_operation
 
 class Database:
     def __init__(self, db_path: str = "xpost_scheduler.db"):
         self.db_path = db_path
+        self.logger = get_logger()
         self.init_database()
     
     def init_database(self):
