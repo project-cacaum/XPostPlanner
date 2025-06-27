@@ -1,6 +1,11 @@
 import os
 from typing import Optional
 from pathlib import Path
+from dotenv import load_dotenv
+
+# .envファイルを確実に読み込み
+project_root = Path(__file__).parent.parent.parent.parent
+load_dotenv(project_root / '.env')
 
 class Settings:
     """アプリケーション設定管理"""

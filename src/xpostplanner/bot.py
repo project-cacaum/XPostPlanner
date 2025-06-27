@@ -8,11 +8,14 @@ from pathlib import Path
 from .models.database import Database
 from .services.scheduler import PostScheduler
 from .utils.date_parser import parse_datetime, get_supported_formats
+# プロジェクトルートの.envファイルを読み込み（他のインポートより先に実行）
+project_root = Path(__file__).parent.parent.parent
+env_path = project_root / '.env'
+load_dotenv(env_path)
+
 from .services.image_manager import ImageManager
 from .utils.logger import get_logger, log_error_with_context, log_discord_event, log_security_event, performance_timer, log_structured
 from .config.settings import settings
-
-load_dotenv()
 
 class XPostBot(commands.Bot):
     def __init__(self):
